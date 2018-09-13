@@ -1,17 +1,65 @@
 var CryptoJS = require('crypto-js');
 var _ = require('underscore');
+var mongoose = require('mongoose');
+const Schema = mongoose.Schema; 
 
-var keySize = 32*8; //32 Bytes
-var iteractions = 1000;
+//mongoose.connect('mongodb://localhost/authJS');
 
-var hashKey = 'VE8e4zL37HMju4D6m5ShPXqsHXABhmB3U6du3AMv42Aj'
+//schema salvo no banco
+const UserSchema = new Schema({
+  name: { type: String, required: true },
+  username: { type: String, required: true },
+  password: { type: String, required: true },
+  salt: { type: String, required: true },
+});
 
-//HMAC256
-var hash = CryptoJS.HmacSHA256("message", hashKey);
-var hashInBase64 = CryptoJS.enc.Base64.stringify(hash);
-console.log(hashInBase64)
 
-//PBKDF2
-var salt = CryptoJS.lib.WordArray.random(keySize); 
-var key512Bits1000Iterations = CryptoJS.PBKDF2(hashInBase64, salt, { keySize: keySize, iterations: iteractions });
-//console.log(key512Bits1000Iterations)
+var keySize = 32; //32 Bytes
+var iteractions = 10000;
+
+
+var password = '1234'
+var salt = CryptoJS.lib.WordArray.random(keySize);
+
+// criptografa a senha
+function encrypt(password, salt) {
+  var hashKey = CryptoJS.PBKDF2(password, salt, { keySize: keySize, iterations: iteractions }).toString();
+  var hashPassword =  CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(salt + password, hashKey));
+  return hashPassword;
+}
+
+// comparação lenta
+function slowEquals(a, b) {
+  var diff = a.length ^ b.length;
+  for(var i = 0; i < a.length && i < b.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+var passwordHash = encrypt(password, salt);
+
+
+
+// console.log("Digite sua senha:")
+// var stdin = process.openStdin();
+// stdin.addListener("data", function(d) {
+   
+// });
+
+const readline = require('readline');
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
+rl.question('Digite sua senha: ', (answer) => {
+  var loginHash = encrypt(answer, salt);
+  if(slowEquals(loginHash, passwordHash)) {
+    console.log('usuario logado');
+  } else {
+    console.log('senha inválida');
+  }
+  rl.close();
+});
+// var encrypted = CryptoJS.AES.encrypt(myString, myPassword);
+// var decrypted = CryptoJS.AES.decrypt(encrypted, myPassword);
