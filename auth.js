@@ -1,15 +1,18 @@
 var CryptoJS = require('crypto-js');
+const CryptoGcm = require('crypto-gcm');
 var crypto = require('crypto');
 
 var config = {
   keySize: 512,
   iterations: 10000,
+  masterKey: '3zTvzr3p67VC61jmV54rIYu1545x4TlY'
 }
 
 // calcula um valor de salt aleatório
 function getRandomSalt() {
-  var salt = CryptoJS.lib.WordArray.random(config.keySize/8);
-  return CryptoJS.enc.Base64.stringify(salt);
+  var salt = CryptoJS.lib.WordArray.random(config.keySize/32);
+  var saltBase64 = CryptoJS.enc.Base64.stringify(salt);
+  return saltBase64
 }
 
 // comparação lenta
@@ -37,24 +40,74 @@ function authentication(password, salt, hashPass) {
 }
 
 
-//   var password = '3zTvzr3p67VC61jmV54rIYu1545x4TlY'
-//   var iv = '60iP0h6vJoEa'
+function encryptWithAES(text) {
+  var iv = Buffer.from(wordArrayToByteArray(CryptoJS.SHA256(config.masterKey), 32))
+  const cg = new CryptoGcm({
+    key: iv,
+    encoding : {
+      plaintext : 'utf8', // also supported: ascii, buffer
+      payload : 'base64'  // also supported: base64, hex
+    }
+  })
+  const payload = cg.encrypt(text);
+  
 
-// function encryptWithAES(text, key) {
-//   var key = CryptoJS.PBKDF2(text, iv, config).toString();
-//   var cipher = crypto.createCipheriv('aes-256-gcm', key)
-//   var encrypted = cipher.update(text, 'utf8', 'hex')
-//   encrypted += cipher.final('hex');
-//   return encrypted 
-// }
+  cg.destroy();
 
-// function decryptWithAES(encrypted) {
-//   var decipher = crypto.createDecipheriv('aes-256-gcm', iv)
-//   decipher.setAuthTag(encrypted.tag);
-//   var dec = decipher.update(encrypted.content, 'hex', 'utf8')
-//   dec += decipher.final('utf8');
-//   return dec;
-// }
+  return payload;
+}
+
+function decryptWithAES(enc) {
+  var iv = Buffer.from(wordArrayToByteArray(CryptoJS.SHA256(config.masterKey), 32))
+  const cg = new CryptoGcm({
+    key: iv,
+    encoding : {
+      plaintext : 'utf8', // also supported: ascii, buffer
+      payload : 'base64'  // also supported: base64, hex
+    }
+  })
+
+  const decrypted = cg.decrypt(enc);
+  cg.destroy();
+
+  return decrypted;
+}
+
+//aux functions
+
+function wordToByteArray(word, length) {
+	var ba = [],
+		i,
+		xFF = 0xFF;
+	if (length > 0)
+		ba.push(word >>> 24);
+	if (length > 1)
+		ba.push((word >>> 16) & xFF);
+	if (length > 2)
+		ba.push((word >>> 8) & xFF);
+	if (length > 3)
+		ba.push(word & xFF);
+
+	return ba;
+}
+
+function wordArrayToByteArray(wordArray, length) {
+	if (wordArray.hasOwnProperty("sigBytes") && wordArray.hasOwnProperty("words")) {
+		length = wordArray.sigBytes;
+		wordArray = wordArray.words;
+	}
+
+	var result = [],
+		bytes
+		i = 0;
+	while (length > 0) {
+		bytes = wordToByteArray(wordArray[i], Math.min(4, length));
+		length -= bytes.length;
+		result.push(bytes);
+		i++;
+	}
+	return [].concat.apply([], result);
+}
 
 
 
@@ -62,8 +115,9 @@ module.exports = {
   authentication, 
   getRandomSalt,
   hash,
-  // encryptWithAES,
-  // decryptWithAES
+  slowEquals,
+  encryptWithAES,
+  decryptWithAES
 }
 
 

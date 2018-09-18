@@ -6,6 +6,10 @@ mongoose.connect('mongodb://localhost/authJS');
 
 //schema da tabela de usuários
 const UserSchema = new Schema({
+  name: { 
+    type: String, 
+    // required: true 
+  },
   username: { 
     type: String, 
     required: true 
@@ -26,6 +30,7 @@ var User = mongoose.model('User');
 
 //cria o usuario no banco
 function create(username, password, salt) {
+  console.log(`${username} - ${password} - ${salt}`)
   return new Promise ((resolve, reject) => {
     var user = new User()
     user.username = username;
